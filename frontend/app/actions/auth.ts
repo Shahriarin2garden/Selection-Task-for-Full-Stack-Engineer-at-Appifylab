@@ -19,6 +19,25 @@ export type AuthState = {
   message?: string;
 } | undefined;
 
+function isPrismaUniqueError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: string }).code === 'P2002'
+  );
+}
+
+function isNextRedirectError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'digest' in error &&
+    typeof (error as { digest?: string }).digest === 'string' &&
+    (error as { digest: string }).digest.startsWith('NEXT_REDIRECT')
+  );
+}
+
 export async function register(state: AuthState, formData: FormData): Promise<AuthState> {
   const raw = {
     firstName: formData.get('firstName') as string,
@@ -36,19 +55,27 @@ export async function register(state: AuthState, formData: FormData): Promise<Au
 
   const { firstName, lastName, email, password } = validated.data;
 
-  const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) {
-    return { errors: { email: ['Email already registered'] } };
+  try {
+    const hashed = await bcrypt.hash(password, 12);
+    const user = await prisma.user.create({
+      data: { firstName, lastName, email, password: hashed },
+      select: { id: true, firstName: true, lastName: true, email: true, avatar: true },
+    });
+
+    await createSession(user);
+    redirect('/feed');
+  } catch (error) {
+    if (isNextRedirectError(error)) {
+      throw error;
+    }
+
+    if (isPrismaUniqueError(error)) {
+      return { errors: { email: ['Email already registered'] } };
+    }
+
+    console.error('Registration failed:', error);
+    return { errors: { _form: ['Unable to register right now. Please try again.'] } };
   }
-
-  const hashed = await bcrypt.hash(password, 12);
-  const user = await prisma.user.create({
-    data: { firstName, lastName, email, password: hashed },
-    select: { id: true, firstName: true, lastName: true, email: true, avatar: true },
-  });
-
-  await createSession(user);
-  redirect('/feed');
 }
 
 export async function login(state: AuthState, formData: FormData): Promise<AuthState> {
@@ -64,18 +91,33 @@ export async function login(state: AuthState, formData: FormData): Promise<AuthS
 
   const { email, password } = validated.data;
 
-  const user = await prisma.user.findUnique({
-    where: { email },
-    select: { id: true, firstName: true, lastName: true, email: true, avatar: true, password: true },
-  });
+  try {
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true, firstName: true, lastName: true, email: true, avatar: true, password: true },
+    });
 
-  if (!user || !(await bcrypt.compare(password, user.password))) {
-    return { errors: { _form: ['Invalid email or password'] } };
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+      return { errors: { _form: ['Invalid email or password'] } };
+    }
+
+    const safeUser = {
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      avatar: user.avatar,
+    };
+    await createSession(safeUser);
+    redirect('/feed');
+  } catch (error) {
+    if (isNextRedirectError(error)) {
+      throw error;
+    }
+
+    console.error('Login failed:', error);
+    return { errors: { _form: ['Unable to log in right now. Please try again.'] } };
   }
-
-  const { password: _, ...safeUser } = user;
-  await createSession(safeUser);
-  redirect('/feed');
 }
 
 export async function logout(): Promise<void> {

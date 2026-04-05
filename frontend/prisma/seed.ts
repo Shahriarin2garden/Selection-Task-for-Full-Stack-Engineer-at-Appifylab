@@ -1,6 +1,32 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import bcrypt from 'bcryptjs';
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+function ensureDatabaseUrl(): void {
+  if (process.env.DATABASE_URL) return;
+
+  const envLocalPath = resolve(process.cwd(), '.env.local');
+  if (!existsSync(envLocalPath)) return;
+
+  const envText = readFileSync(envLocalPath, 'utf8');
+  const line = envText
+    .split(/\r?\n/)
+    .find((entry) => entry.trim().startsWith('DATABASE_URL='));
+
+  if (!line) return;
+
+  const raw = line.slice('DATABASE_URL='.length).trim();
+  const withoutLeadingQuote = raw.startsWith('"') ? raw.slice(1) : raw;
+  const value = withoutLeadingQuote.endsWith('"')
+    ? withoutLeadingQuote.slice(0, -1)
+    : withoutLeadingQuote;
+
+  process.env.DATABASE_URL = value;
+}
+
+ensureDatabaseUrl();
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
