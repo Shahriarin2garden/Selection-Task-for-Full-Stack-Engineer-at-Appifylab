@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(cp -r \"D:/r/Selection Task for Full Stack Engineer at Appifylab/assets/css/\" \"D:/r/Selection Task for Full Stack Engineer at Appifylab/frontend/public/css/\")",
+      "Bash(cp -r \"D:/r/Selection Task for Full Stack Engineer at Appifylab/assets/images/\" \"D:/r/Selection Task for Full Stack Engineer at Appifylab/frontend/public/images/\")",
+      "Bash(cp -r \"D:/r/Selection Task for Full Stack Engineer at Appifylab/assets/js/\" \"D:/r/Selection Task for Full Stack Engineer at Appifylab/frontend/public/js/\")",
+      "Bash(npx prisma:*)",
+      "Bash(npx.cmd prisma:*)",
+      "Bash(mkdir -p \"D:/r/Selection Task for Full Stack Engineer at Appifylab/frontend/src/app/api/posts/\\\\[postId\\\\]/like\")",
+      "Bash(mkdir -p \"D:/r/Selection Task for Full Stack Engineer at Appifylab/frontend/src/app/api/posts/\\\\[postId\\\\]/likes\")",
+      "Bash(mkdir -p \"D:/r/Selection Task for Full Stack Engineer at Appifylab/frontend/src/app/api/posts/\\\\[postId\\\\]/comments\")",
+      "Bash(mkdir -p \"D:/r/Selection Task for Full Stack Engineer at Appifylab/frontend/src/app/api/comments/\\\\[commentId\\\\]/like\")",
+      "Bash(mv src/lib/* ./lib/)",
+      "Bash(mv src/types/* ./types/)",
+      "Bash(node_modules/.bin/tsc.cmd --noEmit)",
+      "Bash(node_modules/.bin/prisma generate:*)",
+      "Bash(node -e \"const {PrismaClient} = require\\(''@prisma/client''\\); console.log\\(''OK'', typeof PrismaClient\\)\")",
+      "Bash(node -e \"const c = require\\(''''prisma/config''''\\); console.log\\(JSON.stringify\\(Object.keys\\(c\\)\\)\\)\")",
+      "Bash(npm run:*)"
+    ]
+  }
+}

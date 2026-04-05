@@ -1,26 +1,94 @@
 @import "tailwindcss";
 
+/* BuddyScript Global CSS */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg1: #ffffff;
+  --bg2: #f8f9fa;
+  --bcolor1: #f0f2f5;
+  --text1: #212529;
+  --text2: #666666;
+  --border1: #e4e6eb;
+  --accent: #1890FF;
+  --shadow1: 0 2px 12px rgba(0,0,0,0.08);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+[data-theme="dark"] {
+  --bg1: #18191a;
+  --bg2: #242526;
+  --bcolor1: #18191a;
+  --text1: #e4e6eb;
+  --text2: #b0b3b8;
+  --border1: #3e4042;
+  --shadow1: 0 2px 12px rgba(0,0,0,0.3);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Spacing utilities matching original */
+._mar_b8 { margin-bottom: 8px; }
+._mar_b14 { margin-bottom: 14px; }
+._mar_b16 { margin-bottom: 16px; }
+._mar_b24 { margin-bottom: 24px; }
+._mar_b26 { margin-bottom: 26px; }
+._mar_b28 { margin-bottom: 28px; }
+._mar_b40 { margin-bottom: 40px; }
+._mar_b50 { margin-bottom: 50px; }
+._mar_b60 { margin-bottom: 60px; }
+._mar_t40 { margin-top: 40px; }
+._mar_r8 { margin-right: 8px; }
+._mar_img { margin-right: 6px; }
+._padd_t10 { padding-top: 10px; }
+._padd_t24 { padding-top: 24px; }
+._padd_b6 { padding-bottom: 6px; }
+._padd_b24 { padding-bottom: 24px; }
+._padd_r24 { padding-right: 24px; }
+._padd_l24 { padding-left: 24px; }
+._b_radious6 { border-radius: 6px; }
+
+._btn1 {
+  background: #1890FF;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 12px 24px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: .3s all ease;
+  width: 100%;
+}
+._btn1:hover { background: #0d7ae0; }
+
+._titl4 {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+  font-size: 22px;
+  color: var(--text1);
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+._title5 {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--text1);
+}
+
+._feed_inner_area {
+  background: var(--bg1);
+  border: 1px solid var(--border1);
+  margin-bottom: 16px;
+}
+
+/* Loading spinner */
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-radius: 50%;
+  border-top-color: #fff;
+  animation: spin 0.8s ease-in-out infinite;
+  margin-right: 6px;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
