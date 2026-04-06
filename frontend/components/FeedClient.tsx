@@ -11,7 +11,11 @@ interface FeedClientProps {
   currentUser: SessionPayload;
 }
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
+const fetcher = (url: string) =>
+  fetch(url).then((r) => {
+    if (!r.ok) throw new Error('Failed to load posts');
+    return r.json();
+  });
 
 const getKey = (pageIndex: number, previousPageData: PaginatedPosts | null) => {
   if (previousPageData && !previousPageData.hasMore) return null;
@@ -22,7 +26,7 @@ const getKey = (pageIndex: number, previousPageData: PaginatedPosts | null) => {
 export default function FeedClient({ initialData, currentUser }: FeedClientProps) {
   const [prependedPosts, setPrependedPosts] = useState<PostWithMeta[]>([]);
 
-  const { data, size, setSize, isLoading } = useSWRInfinite<PaginatedPosts>(
+  const { data, size, setSize, isLoading, error, mutate } = useSWRInfinite<PaginatedPosts>(
     getKey,
     fetcher,
     {
@@ -37,7 +41,7 @@ export default function FeedClient({ initialData, currentUser }: FeedClientProps
   const lastPage = allPages[allPages.length - 1];
   const hasMore = lastPage?.hasMore ?? false;
 
-  // Filter out prepended posts that are now in main feed
+  // Filter out prepended posts that are now in the main feed (deduplication)
   const prependedFiltered = prependedPosts.filter(
     (pp) => !allPosts.find((p) => p.id === pp.id)
   );
@@ -50,9 +54,31 @@ export default function FeedClient({ initialData, currentUser }: FeedClientProps
 
   const handlePostDeleted = useCallback((id: string) => {
     setPrependedPosts((prev) => prev.filter((p) => p.id !== id));
-    // SWR will refetch on next focus, but we can trigger mutate too
-    setSize(size);
-  }, [setSize, size]);
+    mutate();
+  }, [mutate]);
+
+  if (error) {
+    return (
+      <div className="_layout_middle_wrap">
+        <div className="_layout_middle_inner">
+          <CreatePost user={currentUser} onPostCreated={handlePostCreated} />
+          <div className="_feed_inner_area _b_radious6" style={{ padding: '32px', textAlign: 'center' }}>
+            <p style={{ color: '#dc3545', marginBottom: '12px' }}>Failed to load posts.</p>
+            <button
+              onClick={() => mutate()}
+              style={{
+                background: '#1890FF', color: '#fff', border: 'none',
+                borderRadius: '6px', padding: '8px 20px', cursor: 'pointer',
+                fontFamily: 'Poppins, sans-serif',
+              }}
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="_layout_middle_wrap">
@@ -71,7 +97,7 @@ export default function FeedClient({ initialData, currentUser }: FeedClientProps
         {isLoading && (
           <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text2)' }}>
             <span className="spinner" style={{ borderTopColor: '#1890FF', border: '2px solid var(--border1)' }} />
-            Loading...
+            {' '}Loading...
           </div>
         )}
 

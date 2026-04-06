@@ -4,23 +4,27 @@ import { useEffect, useState } from 'react';
 import { PostAuthor } from '@/types';
 
 interface LikesModalProps {
-  postId: string;
+  postId?: string;
+  commentId?: string;
   isOpen: boolean;
   onClose: () => void;
 }
 
-export default function LikesModal({ postId, isOpen, onClose }: LikesModalProps) {
+export default function LikesModal({ postId, commentId, isOpen, onClose }: LikesModalProps) {
   const [likers, setLikers] = useState<PostAuthor[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
+    const url = commentId
+      ? `/api/comments/${commentId}/likes`
+      : `/api/posts/${postId}/likes`;
     setLoading(true);
-    fetch(`/api/posts/${postId}/likes`)
+    fetch(url)
       .then((r) => r.json())
       .then((data) => setLikers(Array.isArray(data) ? data : []))
       .finally(() => setLoading(false));
-  }, [isOpen, postId]);
+  }, [isOpen, postId, commentId]);
 
   if (!isOpen) return null;
 

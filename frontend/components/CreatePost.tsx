@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { PostWithMeta, SessionPayload } from '@/types';
 
 interface CreatePostProps {
@@ -9,25 +10,44 @@ interface CreatePostProps {
 }
 
 export default function CreatePost({ user, onPostCreated }: CreatePostProps) {
-  const [content, setContent] = useState('');
+  const [content, setContent]       = useState('');
   const [visibility, setVisibility] = useState<'PUBLIC' | 'PRIVATE'>('PUBLIC');
-  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageFile, setImageFile]   = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Track the object URL so we can revoke it when no longer needed
+  const previewUrlRef = useRef<string | null>(null);
 
   const avatarUrl = user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.userId}`;
+
+  // Revoke the object URL when the component unmounts to free memory
+  useEffect(() => {
+    return () => {
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    };
+  }, []);
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Revoke any previous preview URL
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    previewUrlRef.current = objectUrl;
     setImageFile(file);
-    const reader = new FileReader();
-    reader.onload = (ev) => setImagePreview(ev.target?.result as string);
-    reader.readAsDataURL(file);
+    setImagePreview(objectUrl);
   };
 
   const removeImage = () => {
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
+    }
     setImageFile(null);
     setImagePreview(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -44,10 +64,15 @@ export default function CreatePost({ user, onPostCreated }: CreatePostProps) {
         const formData = new FormData();
         formData.append('file', imageFile);
         const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
-        if (uploadRes.ok) {
-          const data = await uploadRes.json();
-          imageUrl = data.url;
+
+        if (!uploadRes.ok) {
+          const err = await uploadRes.json().catch(() => ({}));
+          toast.error(err.error || 'Image upload failed. Please try again.');
+          return;
         }
+
+        const data = await uploadRes.json();
+        imageUrl = data.url;
       }
 
       const res = await fetch('/api/posts', {
@@ -56,14 +81,20 @@ export default function CreatePost({ user, onPostCreated }: CreatePostProps) {
         body: JSON.stringify({ content: content.trim(), imageUrl, visibility }),
       });
 
-      if (res.ok) {
-        const post = await res.json();
-        onPostCreated(post);
-        setContent('');
-        setImageFile(null);
-        setImagePreview(null);
-        setVisibility('PUBLIC');
+      if (!res.ok) {
+        toast.error('Failed to create post. Please try again.');
+        return;
       }
+
+      const post = await res.json();
+      onPostCreated(post);
+
+      // Reset form
+      setContent('');
+      removeImage();
+      setVisibility('PUBLIC');
+    } catch {
+      toast.error('Something went wrong. Please check your connection.');
     } finally {
       setIsSubmitting(false);
     }
@@ -130,7 +161,7 @@ export default function CreatePost({ user, onPostCreated }: CreatePostProps) {
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/gif,image/webp"
             style={{ display: 'none' }}
             onChange={handleImageSelect}
           />

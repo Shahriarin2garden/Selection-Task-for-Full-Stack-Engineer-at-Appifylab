@@ -12,20 +12,22 @@ export async function POST(
   const { commentId } = await params;
 
   try {
-    const existing = await prisma.like.findUnique({
-      where: { userId_commentId: { userId: session.userId, commentId } },
+    const [liked, likeCount] = await prisma.$transaction(async (tx) => {
+      const existing = await tx.like.findUnique({
+        where: { userId_commentId: { userId: session.userId, commentId } },
+      });
+
+      if (existing) {
+        await tx.like.delete({ where: { id: existing.id } });
+        const count = await tx.like.count({ where: { commentId } });
+        return [false, count] as const;
+      } else {
+        await tx.like.create({ data: { userId: session.userId, commentId } });
+        const count = await tx.like.count({ where: { commentId } });
+        return [true, count] as const;
+      }
     });
 
-    let liked: boolean;
-    if (existing) {
-      await prisma.like.delete({ where: { id: existing.id } });
-      liked = false;
-    } else {
-      await prisma.like.create({ data: { userId: session.userId, commentId } });
-      liked = true;
-    }
-
-    const likeCount = await prisma.like.count({ where: { commentId } });
     return NextResponse.json({ liked, likeCount });
   } catch (e) {
     console.error(e);

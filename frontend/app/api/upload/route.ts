@@ -4,8 +4,15 @@ import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import { randomUUID } from 'crypto';
 
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+// Map MIME type → safe extension (never trust file.name)
+const ALLOWED_TYPES: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png':  'png',
+  'image/gif':  'gif',
+  'image/webp': 'webp',
+};
+
+const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
@@ -19,12 +26,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      return NextResponse.json({ error: 'Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed.' }, { status: 400 });
+    const safeExt = ALLOWED_TYPES[file.type];
+    if (!safeExt) {
+      return NextResponse.json(
+        { error: 'Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed.' },
+        { status: 400 }
+      );
     }
 
     if (file.size > MAX_SIZE) {
-      return NextResponse.json({ error: 'File too large. Maximum size is 5MB.' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'File too large. Maximum size is 5 MB.' },
+        { status: 400 }
+      );
     }
 
     // Try Cloudinary if configured
@@ -32,9 +46,9 @@ export async function POST(req: NextRequest) {
       try {
         const { v2: cloudinary } = await import('cloudinary');
         cloudinary.config({
-          cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-          api_key: process.env.CLOUDINARY_API_KEY,
-          api_secret: process.env.CLOUDINARY_API_SECRET,
+          cloud_name:  process.env.CLOUDINARY_CLOUD_NAME,
+          api_key:     process.env.CLOUDINARY_API_KEY,
+          api_secret:  process.env.CLOUDINARY_API_SECRET,
         });
 
         const bytes = await file.arrayBuffer();
@@ -52,12 +66,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Fallback: save to public/uploads/
+    // Fallback: save to public/uploads/ with a UUID filename (safe extension only)
     const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
     await mkdir(uploadsDir, { recursive: true });
 
-    const ext = file.name.split('.').pop() || 'jpg';
-    const filename = `${randomUUID()}.${ext}`;
+    const filename = `${randomUUID()}.${safeExt}`;
     const filepath = path.join(uploadsDir, filename);
 
     const bytes = await file.arrayBuffer();

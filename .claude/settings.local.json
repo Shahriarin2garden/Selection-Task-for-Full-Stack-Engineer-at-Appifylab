@@ -17,7 +17,20 @@
       "Bash(node_modules/.bin/prisma generate:*)",
       "Bash(node -e \"const {PrismaClient} = require\\(''@prisma/client''\\); console.log\\(''OK'', typeof PrismaClient\\)\")",
       "Bash(node -e \"const c = require\\(''''prisma/config''''\\); console.log\\(JSON.stringify\\(Object.keys\\(c\\)\\)\\)\")",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(find 'D:\\\\r\\\\Selection Task for Full Stack Engineer at Appifylab/frontend/app' -type f \\\\\\(-name *.ts -o -name *.tsx -o -name *.js \\\\\\))",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code} → %{redirect_url}\" http://localhost:3000/)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code} → %{redirect_url}\" http://localhost:3000/feed)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\" http://localhost:3000/login)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\" http://localhost:3000/register)",
+      "Bash(node -e \":*)",
+      "Bash(psql \"postgresql://postgres:password@localhost:5432/buddyscript\" -c \"SELECT ''users'' as t, COUNT\\(*\\) FROM \"\"User\"\" UNION ALL SELECT ''posts'', COUNT\\(*\\) FROM \"\"Post\"\" UNION ALL SELECT ''comments'', COUNT\\(*\\) FROM \"\"Comment\"\" UNION ALL SELECT ''likes'', COUNT\\(*\\) FROM \"\"Like\"\";\")",
+      "Bash(npx ts-node --compiler-options '{\"\"\"\"module\"\"\"\":\"\"\"\"CommonJS\"\"\"\",\"\"\"\"esModuleInterop\"\"\"\":true}' -e \":*)",
+      "Bash(docker -H npipe:////./pipe/docker_engine ps)",
+      "Bash(docker context:*)",
+      "Bash(choco install:*)"
     ]
   }
 }

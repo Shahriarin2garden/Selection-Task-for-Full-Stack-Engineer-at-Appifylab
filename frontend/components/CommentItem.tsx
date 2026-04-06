@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { CommentWithMeta } from '@/types';
+import LikesModal from './LikesModal';
 
 interface CommentItemProps {
   comment: CommentWithMeta;
@@ -19,6 +20,7 @@ export default function CommentItem({ comment, postId, currentUserId, onReplyAdd
   const [replyText, setReplyText] = useState('');
   const [replies, setReplies] = useState<CommentWithMeta[]>(comment.replies);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showLikesModal, setShowLikesModal] = useState(false);
 
   const avatar = comment.author.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${comment.author.id}`;
 
@@ -85,8 +87,16 @@ export default function CommentItem({ comment, postId, currentUserId, onReplyAdd
               onClick={handleLike}
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: liked ? '#1890FF' : 'var(--text2)', fontSize: '12px', fontWeight: liked ? 600 : 400, padding: 0 }}
             >
-              {liked ? '❤️' : '🤍'} Like{likeCount > 0 ? ` (${likeCount})` : ''}
+              {liked ? '❤️' : '🤍'} Like
             </button>
+            {likeCount > 0 && (
+              <button
+                onClick={() => setShowLikesModal(true)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text2)', fontSize: '12px', padding: 0, textDecoration: 'underline' }}
+              >
+                {likeCount} {likeCount === 1 ? 'like' : 'likes'}
+              </button>
+            )}
             {!isReply && (
               <button
                 onClick={() => setShowReply(!showReply)}
@@ -132,6 +142,11 @@ export default function CommentItem({ comment, postId, currentUserId, onReplyAdd
           isReply
         />
       ))}
+      <LikesModal
+        commentId={comment.id}
+        isOpen={showLikesModal}
+        onClose={() => setShowLikesModal(false)}
+      />
     </div>
   );
 }
