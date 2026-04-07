@@ -19,7 +19,7 @@ async function fetchInitialPosts(userId: string): Promise<PaginatedPosts> {
           { authorId: userId },
         ],
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       select: {
         id: true,
         content: true,
@@ -33,7 +33,7 @@ async function fetchInitialPosts(userId: string): Promise<PaginatedPosts> {
 
     const hasMore = posts.length > limit;
     const sliced = hasMore ? posts.slice(0, limit) : posts;
-    const nextCursor = hasMore ? sliced[sliced.length - 1].id : null;
+    const nextCursor = hasMore ? (sliced.at(-1)?.id ?? null) : null;
 
     const likedPostIds = sliced.length > 0
       ? await prisma.like.findMany({

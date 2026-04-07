@@ -1,7 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
+import { getAccessiblePostForUser } from '@/lib/access';
 import { createCommentSchema } from '@/lib/validations';
+
+function toFieldErrors(issues: Array<{ path: PropertyKey[]; message: string }>) {
+  return issues.reduce<Record<string, string[]>>((acc, issue) => {
+    const field = issue.path[0];
+    if (typeof field !== 'string') return acc;
+    if (!acc[field]) acc[field] = [];
+    acc[field].push(issue.message);
+    return acc;
+  }, {});
+}
 
 export async function GET(
   _req: NextRequest,
@@ -13,6 +24,10 @@ export async function GET(
   const { postId } = await params;
 
   try {
+    if (!(await getAccessiblePostForUser(postId, session.userId))) {
+      return NextResponse.json({ error: 'Post not found' }, { status: 404 });
+    }
+
     const comments = await prisma.comment.findMany({
       where: { postId, parentId: null },
       orderBy: { createdAt: 'asc' },
@@ -81,10 +96,14 @@ export async function POST(
   const { postId } = await params;
 
   try {
+    if (!(await getAccessiblePostForUser(postId, session.userId))) {
+      return NextResponse.json({ error: 'Post not found' }, { status: 404 });
+    }
+
     const body = await req.json();
     const validated = createCommentSchema.safeParse(body);
     if (!validated.success) {
-      return NextResponse.json({ error: validated.error.flatten().fieldErrors }, { status: 400 });
+      return NextResponse.json({ error: toFieldErrors(validated.error.issues) }, { status: 400 });
     }
 
     const { content, parentId } = validated.data;

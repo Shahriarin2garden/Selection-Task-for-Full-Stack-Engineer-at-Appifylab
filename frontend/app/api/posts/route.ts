@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { getSession } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 import { createPostSchema } from '@/lib/validations';
@@ -9,19 +10,60 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const cursor = searchParams.get('cursor') || undefined;
-  const limit = Math.min(parseInt(searchParams.get('limit') || '10'), 50);
+  const requestedLimit = Number.parseInt(searchParams.get('limit') || '10', 10);
+  if (Number.isNaN(requestedLimit) || requestedLimit < 1) {
+    return NextResponse.json({ error: 'Invalid limit' }, { status: 400 });
+  }
+
+  const limit = Math.min(requestedLimit, 50);
 
   try {
+    const accessFilter = {
+      OR: [
+        { visibility: 'PUBLIC' as const },
+        { authorId: session.userId },
+      ],
+    };
+
+    let keysetFilter:
+      | {
+          OR: Array<
+            | { createdAt: { lt: Date } }
+            | { AND: Array<{ createdAt: Date } | { id: { lt: string } }> }
+          >;
+        }
+      | undefined;
+
+    if (cursor) {
+      const cursorPost = await prisma.post.findFirst({
+        where: {
+          id: cursor,
+          ...accessFilter,
+        },
+        select: { id: true, createdAt: true },
+      });
+
+      if (!cursorPost) {
+        return NextResponse.json({ error: 'Invalid cursor' }, { status: 400 });
+      }
+
+      keysetFilter = {
+        OR: [
+          { createdAt: { lt: cursorPost.createdAt } },
+          { AND: [{ createdAt: cursorPost.createdAt }, { id: { lt: cursorPost.id } }] },
+        ],
+      };
+    }
+
     const posts = await prisma.post.findMany({
       take: limit + 1,
-      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
       where: {
-        OR: [
-          { visibility: 'PUBLIC' },
-          { authorId: session.userId },
+        AND: [
+          accessFilter,
+          ...(keysetFilter ? [keysetFilter] : []),
         ],
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       select: {
         id: true,
         content: true,
@@ -35,7 +77,7 @@ export async function GET(req: NextRequest) {
 
     const hasMore = posts.length > limit;
     const sliced = hasMore ? posts.slice(0, limit) : posts;
-    const nextCursor = hasMore ? sliced[sliced.length - 1].id : null;
+    const nextCursor = hasMore ? (sliced.at(-1)?.id ?? null) : null;
 
     const likedPostIds = sliced.length > 0
       ? await prisma.like.findMany({
@@ -74,7 +116,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const validated = createPostSchema.safeParse(body);
     if (!validated.success) {
-      return NextResponse.json({ error: validated.error.flatten().fieldErrors }, { status: 400 });
+      return NextResponse.json({ error: z.flattenError(validated.error).fieldErrors }, { status: 400 });
     }
 
     const { content, imageUrl, visibility } = validated.data;

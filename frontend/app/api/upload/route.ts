@@ -1,18 +1,47 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
-import { writeFile, mkdir } from 'fs/promises';
-import path from 'path';
-import { randomUUID } from 'crypto';
-
-// Map MIME type → safe extension (never trust file.name)
-const ALLOWED_TYPES: Record<string, string> = {
-  'image/jpeg': 'jpg',
-  'image/png':  'png',
-  'image/gif':  'gif',
-  'image/webp': 'webp',
-};
+import { writeFile, mkdir } from 'node:fs/promises';
+import path from 'node:path';
+import { randomUUID } from 'node:crypto';
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+
+function detectImageExtension(buffer: Buffer): 'jpg' | 'png' | 'gif' | 'webp' | null {
+  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return 'jpg';
+  }
+
+  if (
+    buffer.length >= 8 &&
+    buffer[0] === 0x89 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x4e &&
+    buffer[3] === 0x47 &&
+    buffer[4] === 0x0d &&
+    buffer[5] === 0x0a &&
+    buffer[6] === 0x1a &&
+    buffer[7] === 0x0a
+  ) {
+    return 'png';
+  }
+
+  if (buffer.length >= 6) {
+    const header = buffer.subarray(0, 6).toString('ascii');
+    if (header === 'GIF87a' || header === 'GIF89a') {
+      return 'gif';
+    }
+  }
+
+  if (
+    buffer.length >= 12 &&
+    buffer.subarray(0, 4).toString('ascii') === 'RIFF' &&
+    buffer.subarray(8, 12).toString('ascii') === 'WEBP'
+  ) {
+    return 'webp';
+  }
+
+  return null;
+}
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
@@ -26,17 +55,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
-    const safeExt = ALLOWED_TYPES[file.type];
-    if (!safeExt) {
-      return NextResponse.json(
-        { error: 'Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed.' },
-        { status: 400 }
-      );
+    if (file.size === 0) {
+      return NextResponse.json({ error: 'Empty file is not allowed.' }, { status: 400 });
     }
 
     if (file.size > MAX_SIZE) {
       return NextResponse.json(
         { error: 'File too large. Maximum size is 5 MB.' },
+        { status: 400 }
+      );
+    }
+
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+
+    const safeExt = detectImageExtension(buffer);
+    if (!safeExt) {
+      return NextResponse.json(
+        { error: 'Invalid file signature. Only JPEG, PNG, GIF, and WebP are allowed.' },
         { status: 400 }
       );
     }
@@ -51,8 +87,6 @@ export async function POST(req: NextRequest) {
           api_secret:  process.env.CLOUDINARY_API_SECRET,
         });
 
-        const bytes = await file.arrayBuffer();
-        const buffer = Buffer.from(bytes);
         const dataURI = `data:${file.type};base64,${buffer.toString('base64')}`;
 
         const result = await cloudinary.uploader.upload(dataURI, {
@@ -73,8 +107,7 @@ export async function POST(req: NextRequest) {
     const filename = `${randomUUID()}.${safeExt}`;
     const filepath = path.join(uploadsDir, filename);
 
-    const bytes = await file.arrayBuffer();
-    await writeFile(filepath, Buffer.from(bytes));
+    await writeFile(filepath, buffer);
 
     return NextResponse.json({ url: `/uploads/${filename}` });
   } catch (e) {

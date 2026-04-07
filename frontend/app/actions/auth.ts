@@ -1,8 +1,15 @@
 'use server';
 
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 import bcrypt from 'bcryptjs';
+import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
+import {
+  clearLoginFailures,
+  isLoginRateLimited,
+  recordLoginFailure,
+} from '@/lib/login-rate-limit';
 import { createSession, deleteSession } from '@/lib/session';
 import { loginSchema, registerSchema } from '@/lib/validations';
 
@@ -50,7 +57,7 @@ export async function register(state: AuthState, formData: FormData): Promise<Au
 
   const validated = registerSchema.safeParse(raw);
   if (!validated.success) {
-    return { errors: validated.error.flatten().fieldErrors };
+    return { errors: z.flattenError(validated.error).fieldErrors };
   }
 
   const { firstName, lastName, email, password } = validated.data;
@@ -86,10 +93,24 @@ export async function login(state: AuthState, formData: FormData): Promise<AuthS
 
   const validated = loginSchema.safeParse(raw);
   if (!validated.success) {
-    return { errors: validated.error.flatten().fieldErrors };
+    return { errors: z.flattenError(validated.error).fieldErrors };
   }
 
   const { email, password } = validated.data;
+  const hdrs = await headers();
+  const ip =
+    hdrs.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    hdrs.get('x-real-ip') ||
+    'unknown';
+  const rateLimitKey = `${email.toLowerCase()}|${ip}`;
+
+  if (isLoginRateLimited(rateLimitKey)) {
+    return {
+      errors: {
+        _form: ['Too many failed login attempts. Please wait 15 minutes and try again.'],
+      },
+    };
+  }
 
   try {
     const user = await prisma.user.findUnique({
@@ -98,6 +119,7 @@ export async function login(state: AuthState, formData: FormData): Promise<AuthS
     });
 
     if (!user || !(await bcrypt.compare(password, user.password))) {
+      recordLoginFailure(rateLimitKey);
       return { errors: { _form: ['Invalid email or password'] } };
     }
 
@@ -109,6 +131,7 @@ export async function login(state: AuthState, formData: FormData): Promise<AuthS
       avatar: user.avatar,
     };
     await createSession(safeUser);
+    clearLoginFailures(rateLimitKey);
     redirect('/feed');
   } catch (error) {
     if (isNextRedirectError(error)) {

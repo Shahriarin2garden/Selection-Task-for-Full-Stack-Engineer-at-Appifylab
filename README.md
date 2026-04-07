@@ -513,13 +513,13 @@ Prisma 7 removed the binary query engine. All database connections now require a
 Prisma 7 removed the `url` field from `datasource` in `schema.prisma`. Connection URLs must now be declared in `prisma.config.ts` using `defineConfig({ datasource: { url } })`.
 
 ### Cursor-based pagination
-The feed uses cursor-based pagination (not OFFSET) so results remain stable when new posts are created mid-session. The cursor is the `id` of the last post in the current page. `useSWRInfinite` manages the cursor chain and deduplication.
+The feed uses keyset pagination (not OFFSET) so results remain stable when new posts are created mid-session. Pagination is ordered by `createdAt DESC, id DESC`, and the cursor resolves to a deterministic boundary in that order.
 
 ### Optimistic UI for likes
 Like state and count update immediately on click. If the server request fails, the UI rolls back to the previous state. This makes the interaction feel instant without sacrificing correctness.
 
-### Image validation by MIME type
-File uploads are validated by inspecting the binary MIME type (via `file.type` on the client and `formData` parsing on the server), not the filename extension, to prevent extension spoofing.
+### Image validation by binary signature
+File uploads are validated by inspecting file magic bytes (JPEG/PNG/GIF/WebP signatures) on the server, not trusting filename extension or client-reported MIME type.
 
 ### Path aliases
 `@/*` maps to the root of `frontend/` (`./*`), not a `src/` subdirectory. All `lib/`, `components/`, `types/`, and `app/` directories live directly under `frontend/`.

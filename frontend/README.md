@@ -421,7 +421,7 @@ Prisma 7 removed the binary query engine. All database connections now require a
 Prisma 7 removed the `url` field from `datasource` in `schema.prisma`. Connection URLs must now be configured in `prisma.config.ts` using `defineConfig({ datasource: { url } })`.
 
 ### Cursor-based pagination
-The feed uses cursor-based pagination (not OFFSET) for consistency when new posts are created. The cursor is the `id` of the last post in the current page. SWR's `useSWRInfinite` manages the cursor chain and deduplication.
+The feed uses keyset pagination (not OFFSET) for consistency when new posts are created. Results are ordered by `createdAt DESC, id DESC`, and the cursor resolves the next page from this deterministic ordering. SWR's `useSWRInfinite` manages the cursor chain and deduplication.
 
 ### Path aliases
 `@/*` maps to the root directory (`./*`), not `src/`. All `lib/`, `components/`, `types/`, and `app/` directories live at the root of `frontend/`, not inside a `src/` subdirectory.

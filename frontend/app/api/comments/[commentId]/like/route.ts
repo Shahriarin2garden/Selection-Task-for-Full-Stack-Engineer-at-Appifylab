@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
+import { getAccessibleCommentForUser } from '@/lib/access';
 
 export async function POST(
   _req: NextRequest,
@@ -12,6 +13,10 @@ export async function POST(
   const { commentId } = await params;
 
   try {
+    if (!(await getAccessibleCommentForUser(commentId, session.userId))) {
+      return NextResponse.json({ error: 'Comment not found' }, { status: 404 });
+    }
+
     const [liked, likeCount] = await prisma.$transaction(async (tx) => {
       const existing = await tx.like.findUnique({
         where: { userId_commentId: { userId: session.userId, commentId } },
